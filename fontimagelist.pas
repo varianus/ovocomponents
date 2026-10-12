@@ -259,8 +259,8 @@ var
   bmp: TBitMap;
 begin
   if FIsLoading or (csLoading in ComponentState) then Exit;
-
   Clear;
+  FStream:= nil;
   RegisterResolutions([Height]);
 
   try
@@ -283,9 +283,14 @@ begin
        IconRenderer.Color := GetSysColor(SysColorToSysColorIndex(Item.Color))
       else
         IconRenderer.Color := Item.Color;
+
       Bmp := TBitmap.Create;
-      IconRenderer.getGlyph(Item.GliphIndex, bmp); //;then
-      Add(bmp, nil);
+      try
+        IconRenderer.getGlyph(Item.GliphIndex, bmp); //;then
+        Add(bmp, nil);
+      finally
+        Bmp.free;
+      end;
     end;
 
   finally
