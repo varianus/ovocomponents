@@ -5,11 +5,9 @@ unit FontImageList;
 interface
 
 uses
-  Classes, SysUtils, ImgList, Controls, Graphics, iconrender, types, lcltype, LCLIntf;
+  Classes, SysUtils, ImgList, Controls, Graphics, iconrender, types, lcltype, LCLIntf, Dialogs, PropEdits;
 
 type
-  TFontSource = (fsrcFileName, fsrcResource);
-
   TFontImageData = record
     GliphIndex: integer;
     Color: TColor;
@@ -17,20 +15,33 @@ type
 
   TFontImageDataArray = array of TFontImageData;
 
-  { TMyFontImageList }
+  TFontImageDataArrayHelper = record helper for  TFontImageDataArray
+    function AddGlyph(AGliphIndex: integer; AColor: TColor): integer;
+    procedure RemoveGlyph(AIndex: integer);
+    procedure MoveGlyphUp(AIndex: integer);
+    procedure MoveGlyphDown(AIndex: integer);
+  end;
 
+  { TFontImageFontEditor }
+(*
+  TFontImageFontEditor = class(TStringPropertyEditor)
+  public
+    procedure Edit; override;
+    function CreateDlg: TOpenDialog; virtual;
+    function GetAttributes: TPropertyAttributes; override;
+    function GetValue: string; override;
+  end;
+*)
   { TFontImageList }
 
   TFontImageList = class(TCustomImageList)
   private
-    FFontName: TFileName;
-    FFontSource: TFontSource;
     FIsLoading: boolean;
     FGlyphs: TFontImageDataArray;
     FOnInitialize: TNotifyEvent;
     FSize: TSize;
-    procedure SetFontName(AValue: TFileName);
-    procedure SetFontSource(AValue: TFontSource);
+    FFontData: TMemoryStream;
+    FDummy: string;
     procedure SetGlyphs(AValue: TFontImageDataArray);
     procedure SetOnInitialize(AValue: TNotifyEvent);
     procedure SetSize(AValue: TSize);
@@ -41,20 +52,20 @@ type
     procedure SetHeight(AValue: integer);
     procedure RegenerateImages;
   public
+    property FontStream:TMemoryStream read FFontData;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure WriteGlyphData(AStream: TStream);
     procedure ReadGliphData(AStream: TStream);
+    procedure WriteFontData(AStream: TStream);
+    procedure ReadFontData(AStream: TStream);
     procedure WriteData(AStream: TStream); override;
     procedure ReadData(AStream: TStream); override;
     procedure WriteAdvData(AStream: TStream); override;
     procedure ReadAdvData(AStream: TStream); override;
 
-
     property Glyphs: TFontImageDataArray read FGlyphs write SetGlyphs;
   published
-    property FontName: TFileName read FFontName write SetFontName;
-    property FontSource: TFontSource read FFontSource write SetFontSource;
     property OnInitialize: TNotifyEvent read FOnInitialize write SetOnInitialize;
     property Height write SetHeight;
     property Width write SetWidth;
@@ -62,71 +73,106 @@ type
 
   end;
 
-{ Procedural functions for TFontImageDataArray manipulation }
-function AddGlyph(var AArray: TFontImageDataArray; AGliphIndex: integer; AColor: TColor): integer;
-procedure RemoveGlyph(var AArray: TFontImageDataArray; AIndex: integer);
-procedure MoveGlyphUp(var AArray: TFontImageDataArray; AIndex: integer);
-procedure MoveGlyphDown(var AArray: TFontImageDataArray; AIndex: integer);
-
 implementation
 
-type
-  TComponentCracker = class(TComponent);
-
-  { Procedural function implementations }
-
-function AddGlyph(var AArray: TFontImageDataArray; AGliphIndex: integer; AColor: TColor): integer;
+function TFontImageDataArrayHelper.AddGlyph(AGliphIndex: integer; AColor: TColor): integer;
 var
   NewGlyph: TFontImageData;
 begin
   NewGlyph.GliphIndex := AGliphIndex;
   NewGlyph.Color      := AColor;
 
-  SetLength(AArray, Length(AArray) + 1);
-  AArray[Length(AArray) - 1] := NewGlyph;
+  SetLength(self, Length(self) + 1);
+  self[Length(self) - 1] := NewGlyph;
 
-  Result := Length(AArray) - 1;
+  Result := Length(self) - 1;
 end;
 
-procedure RemoveGlyph(var AArray: TFontImageDataArray; AIndex: integer);
+procedure TFontImageDataArrayHelper.RemoveGlyph(AIndex: integer);
 var
   i: integer;
 begin
-  if (AIndex < 0) or (AIndex >= Length(AArray)) then Exit;
+  if (AIndex < 0) or (AIndex >= Length(self)) then Exit;
 
-  for i := AIndex to Length(AArray) - 2 do
-    AArray[i] := AArray[i + 1];
+  for i := AIndex to Length(Self) - 2 do
+    self[i] := self[i + 1];
 
-  SetLength(AArray, Length(AArray) - 1);
+  SetLength(self, Length(self) - 1);
 end;
 
-procedure MoveGlyphUp(var AArray: TFontImageDataArray; AIndex: integer);
+procedure TFontImageDataArrayHelper.MoveGlyphUp(AIndex: integer);
 var
   TempGlyph: TFontImageData;
 begin
-  if (AIndex <= 0) or (AIndex >= Length(AArray)) then Exit;
+  if (AIndex <= 0) or (AIndex >= Length(Self)) then Exit;
 
-  TempGlyph      := AArray[AIndex];
-  AArray[AIndex] := AArray[AIndex - 1];
-  AArray[AIndex - 1] := TempGlyph;
+  TempGlyph    := Self[AIndex];
+  Self[AIndex] := Self[AIndex - 1];
+  Self[AIndex - 1] := TempGlyph;
 end;
 
-procedure MoveGlyphDown(var AArray: TFontImageDataArray; AIndex: integer);
+procedure TFontImageDataArrayHelper.MoveGlyphDown(AIndex: integer);
 var
   TempGlyph: TFontImageData;
 begin
-  if (AIndex < 0) or (AIndex >= Length(AArray) - 1) then Exit;
+  if (AIndex < 0) or (AIndex >= Length(Self) - 1) then Exit;
 
-  TempGlyph      := AArray[AIndex];
-  AArray[AIndex] := AArray[AIndex + 1];
-  AArray[AIndex + 1] := TempGlyph;
+  TempGlyph    := Self[AIndex];
+  Self[AIndex] := Self[AIndex + 1];
+  Self[AIndex + 1] := TempGlyph;
+end;
+(*
+{ TFontImageFontEditor }
+
+procedure TFontImageFontEditor.Edit;
+var
+  TheDialog: TOpenDialog;
+  Comp: TFontImageList;
+  Hook: TPropertyEditorHook;
+begin
+  Comp := TFontImageList(GetComponent(0));
+  TheDialog := CreateDlg;
+  try
+  if TheDialog.Execute then
+     begin
+       Comp.FFontData.LoadFromFile(TheDialog.FileName);
+       Comp.RegenerateImages;
+     end;
+
+  finally
+    TheDialog.Free;
+  end;
 end;
 
+function TFontImageFontEditor.CreateDlg: TOpenDialog;
+begin
+  Result := TOpenDialog.Create(nil);
+  Result.Filter := 'Fonts|*.ttf;*.otf';
+
+end;
+
+function TFontImageFontEditor.GetAttributes: TPropertyAttributes;
+begin
+  Result := [paDialog, paRevertable, paReadOnly];
+end;
+
+function TFontImageFontEditor.GetValue: string;
+var
+  Comp: TFontImageList;
+begin
+  Comp := TFontImageList(GetComponent(0));
+   if (Comp <> nil) and (Comp.FFontData.Size > 0) then
+     Result := Format('(%d Bytes Embedded)', [Comp.FFontData.Size])
+   else
+     Result := '(Empty)';
+end;
+  *)
 { TFontImageList }
 
 constructor TFontImageList.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+  FFontData := TMemoryStream.Create;
   //  FIsLoading := False;
   SetLength(FGlyphs, 0);
 end;
@@ -134,6 +180,7 @@ end;
 destructor TFontImageList.Destroy;
 begin
   SetLength(FGlyphs, 0);
+  FFontData.Free;
   inherited Destroy;
 end;
 
@@ -149,9 +196,9 @@ end;
 
 procedure TFontImageList.DefineProperties(Filer: TFiler);
 begin
-  //  TComponentCracker(Self).DefineProperties(Filer);
   inherited DefineProperties(Filer);
   Filer.DefineBinaryProperty('GlyphsData', ReadGliphData, WriteGlyphData, True);
+  Filer.DefineBinaryProperty('FontData', ReadFontData, WriteFontData, True);
 end;
 
 procedure TFontImageList.SetHeight(AValue: integer);
@@ -191,6 +238,22 @@ begin
   end;
 end;
 
+procedure TFontImageList.WriteFontData(AStream: TStream);
+begin
+  FFontData.Position := 0;
+  AStream.Write(FFontData.Size,SizeOf(int64));
+  if FFontData.Size > 0 then
+    AStream.CopyFrom(FFontData, FFontData.Size);
+end;
+
+procedure TFontImageList.ReadFontData(AStream: TStream);
+var ASize: Int64;
+begin
+  ASize := AStream.ReadQWord;
+  if ASize > 0 then
+    FFontData.CopyFrom(AStream,ASize);
+end;
+
 procedure TFontImageList.WriteData(AStream: TStream);
 begin
   //Do nothing
@@ -214,20 +277,6 @@ end;
 procedure TFontImageList.SetWidth(AValue: integer);
 begin
   SetWidthHeight(AValue, Height);
-  RegenerateImages;
-end;
-
-procedure TFontImageList.SetFontName(AValue: TFileName);
-begin
-  if FFontName = AValue then Exit;
-  FFontName := AValue;
-  RegenerateImages;
-end;
-
-procedure TFontImageList.SetFontSource(AValue: TFontSource);
-begin
-  if FFontSource = AValue then Exit;
-  FFontSource := AValue;
   RegenerateImages;
 end;
 
@@ -255,32 +304,22 @@ procedure TFontImageList.RegenerateImages;
 var
   Item: TFontImageData;
   IconRenderer: TIconRenderer;
-  FStream: TStream;
   bmp: TBitMap;
 begin
   if FIsLoading or (csLoading in ComponentState) then Exit;
+  if FFontData.Size = 0 then
+     exit;
   Clear;
-  FStream:= nil;
   RegisterResolutions([Height]);
 
   try
-    case FFontSource of
-      fsrcFileName: FStream := TFileStream.Create(FFontName, fmOpenRead + fmShareDenyNone);
-      fsrcResource: FStream := TResourceStream.Create(HInstance, FFontName, RT_RCDATA);
-    end;
-  except
-    FStream.Free;
-    exit;
-  end;
-
-  try
-    IconRenderer := TIconRenderer.Create(FStream);
+    IconRenderer := TIconRenderer.Create(FFontData);
     IconRenderer.SetSize(Height, Width, Scaled); // Scaling occurs inside object, no need to do it here
 
     for item in FGlyphs do
     begin
       if IsSysColor(Item.Color) then
-       IconRenderer.Color := GetSysColor(SysColorToSysColorIndex(Item.Color))
+        IconRenderer.Color := GetSysColor(SysColorToSysColorIndex(Item.Color))
       else
         IconRenderer.Color := Item.Color;
 
@@ -289,7 +328,7 @@ begin
         IconRenderer.getGlyph(Item.GliphIndex, bmp); //;then
         Add(bmp, nil);
       finally
-        Bmp.free;
+        Bmp.Free;
       end;
     end;
 

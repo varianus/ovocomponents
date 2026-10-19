@@ -141,7 +141,8 @@ end;
 constructor TIconRenderer.Create(AStream: TStream);
 begin
   FFontData := TFreeTypeFont.Create;
-  FFontData.AccessFromStream(AStream, True);
+  AStream.Position := 0;
+  FFontData.AccessFromStream(AStream, False);
 end;
 
 destructor TIconRenderer.Destroy;
