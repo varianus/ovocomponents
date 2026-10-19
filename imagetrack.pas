@@ -24,7 +24,7 @@ unit ImageTrack;
 interface
 
 uses
-  Classes, SysUtils, LResources, Forms, Controls, ExtCtrls, Graphics, Dialogs;
+  Classes, SysUtils, LCLType, LResources, Forms, Controls, ExtCtrls, Graphics, Dialogs;
 
 type
 
@@ -34,31 +34,34 @@ type
   private
     FBackGroundImage: TPicture;
     FForeGroundImage: TPicture;
-    FMax: Cardinal;
-    FMin: Cardinal;
-    FPosition: Cardinal;
-    Seeking : Boolean;
-    fInternalBMP:TBitmap;
+    FMax: cardinal;
+    FMin: cardinal;
+    FOnChange: TNotifyEvent;
+    FPosition: cardinal;
+    Seeking: boolean;
+    fInternalBMP: TBitmap;
     procedure DrawInternalBMP;
     procedure SetBackGroundImage(const AValue: TPicture);
     procedure SetForeGroundImage(const AValue: TPicture);
-    procedure SetMax(const AValue: Cardinal);
-    procedure SetMin(const AValue: Cardinal);
-    procedure SetPosition(const AValue: Cardinal);
+    procedure SetMax(const AValue: cardinal);
+    procedure SetMin(const AValue: cardinal);
+    procedure SetPosition(const AValue: cardinal);
     { Private declarations }
   protected
-    Procedure Paint; override;
-    procedure MouseMove(Shift: TShiftState; X,Y: Integer); Override;
-    Procedure DoOnResize; Override;
-    Procedure Loaded; Override;
+    procedure Paint; override;
+    procedure MouseMove(Shift: TShiftState; X, Y: integer); override;
+    procedure DoOnResize; override;
+    procedure Loaded; override;
+    procedure EraseBackground(DC: HDC); override;
   public
-    Constructor Create(AOwner: Tcomponent); override;
+    constructor Create(AOwner: TComponent); override;
   published
-    Property Max: Cardinal read FMax write SetMax;
-    Property Min: Cardinal read FMin write SetMin;
-    Property Position: Cardinal read FPosition write SetPosition;
-    Property BackGroundImage :TPicture read FBackGroundImage write SetBackGroundImage;
-    Property ForeGroundImage :TPicture read FForeGroundImage write SetForeGroundImage;
+    property Max: cardinal read FMax write SetMax;
+    property Min: cardinal read FMin write SetMin;
+    property Position: cardinal read FPosition write SetPosition;
+    property BackGroundImage: TPicture read FBackGroundImage write SetBackGroundImage;
+    property ForeGroundImage: TPicture read FForeGroundImage write SetForeGroundImage;
+    property OnChange: TNotifyEvent read FOnChange write FOnChange;
   end;
 
 implementation
@@ -67,48 +70,53 @@ implementation
 
 procedure TImageTrack.SetBackGroundImage(const AValue: TPicture);
 begin
-  if FBackGroundImage=AValue then exit;
-  FBackGroundImage:=AValue;
+  if FBackGroundImage = AValue then exit;
+  FBackGroundImage := AValue;
   if fInternalBMP.Width = 0 then
-     fInternalBMP.SetSize(AValue.Width, AValue.Height);
+    fInternalBMP.SetSize(AValue.Width, AValue.Height);
 
   DrawInternalBMP;
 end;
 
 procedure TImageTrack.SetForeGroundImage(const AValue: TPicture);
 begin
-  if FForeGroundImage=AValue then exit;
-  FForeGroundImage:=AValue;
+  if FForeGroundImage = AValue then exit;
+  FForeGroundImage := AValue;
   if fInternalBMP.Width = 0 then
-     fInternalBMP.SetSize(AValue.Width, AValue.Height);
+    fInternalBMP.SetSize(AValue.Width, AValue.Height);
 
   DrawInternalBMP;
 end;
 
-procedure TImageTrack.SetMax(const AValue: Cardinal);
+procedure TImageTrack.SetMax(const AValue: cardinal);
 begin
-  if FMax=AValue then exit;
+  if FMax = AValue then exit;
   if FMax <= FMin then exit;
-  FMax:=AValue;
+  FMax := AValue;
   DrawInternalBMP;
 end;
 
-procedure TImageTrack.SetMin(const AValue: Cardinal);
+procedure TImageTrack.SetMin(const AValue: cardinal);
 begin
-  if FMin=AValue then exit;
+  if FMin = AValue then exit;
   if FMin >= FMax then exit;
-  FMin:=AValue;
+  FMin := AValue;
   DrawInternalBMP;
 end;
 
-procedure TImageTrack.SetPosition(const AValue: Cardinal);
+procedure TImageTrack.SetPosition(const AValue: cardinal);
 begin
-  if FPosition=AValue then exit;
-  FPosition:=AValue;
-  if FPosition > fmax then FPosition:=FMax;
-  if FPosition < FMin then FPosition:=FMin;
+  if FPosition = AValue then
+    exit;
+  FPosition := AValue;
+  if FPosition > fmax then
+    FPosition := FMax;
+  if FPosition < FMin then
+    FPosition := FMin;
 
   DrawInternalBMP;
+  if Assigned(FOnChange) then
+    FOnChange(self);
 end;
 
 procedure TImageTrack.DrawInternalBMP;
@@ -116,42 +124,52 @@ var
   r1: TRect;
 begin
   if (FBackGroundImage = nil) or
-     (FForeGroundImage = nil) then
-    Inherited Paint;
-
-  fInternalBMP.Canvas.Clear;
-  r1:=Rect(0, 0, fInternalBMP.Width, fInternalBMP.Height);
-  fInternalBMP.Canvas.CopyRect(r1,FBackGroundImage.Bitmap.Canvas,r1);
-
-  r1:=Rect(0,0, trunc(fInternalBMP.width *(FPosition /FMax))-1,fInternalBMP.Height );
-
-  fInternalBMP.Canvas.CopyRect(r1,FForeGroundImage.Bitmap.Canvas,r1);
-  Repaint;
+    (FForeGroundImage = nil) then
+  begin
+    fInternalBMP.SetSize(Width, Height);
+    fInternalBMP.Canvas.Rectangle(BoundsRect);
+    fInternalBMP.Canvas.Line(0, 0, Width, Height);
+    fInternalBMP.Canvas.Line(0, Height, Width, 0);
+  end
+  else
+  begin
+    fInternalBMP.Clear;
+    fInternalBMP.SetSize(FBackGroundImage.Width, FBackGroundImage.Height);
+    fInternalBMP.Canvas.CopyMode := cmSrcCopy;
+    r1 := Rect(0, 0, FBackGroundImage.Width, FBackGroundImage.Height);
+    fInternalBMP.Canvas.CopyRect(r1, FBackGroundImage.Bitmap.Canvas, r1);
+    r1 := Rect(0, 0, trunc(FForeGroundImage.Width * (FPosition / FMax)) - 1, FForeGroundImage.Height);
+    fInternalBMP.Canvas.CopyRect(r1, FForeGroundImage.Bitmap.Canvas, r1);
+  end;
+  fInternalBMP.Transparent := True;
+  invalidate;
 end;
 
 procedure TImageTrack.Paint;
 begin
-  Canvas.StretchDraw(rect(0,0,Width, Height), fInternalBMP);
+  Canvas.StretchDraw(rect(0, 0, Width, Height), fInternalBMP);
 end;
 
-procedure TImageTrack.MouseMove(Shift: TShiftState; X, Y: Integer);
+procedure TImageTrack.MouseMove(Shift: TShiftState; X, Y: integer);
 var
   newPosition: integer;
 begin
-  Paint;
   if ssLeft in Shift then
-    begin
-      Seeking     := True;
-      Cursor := crHSplit;
-      newPosition := round(x * Max / Width);
-      Position:= newPosition;
-      DrawInternalBMP;
-    end
+  begin
+    Seeking     := True;
+    Cursor      := crHSplit;
+    if X > -1 then
+      begin
+        newPosition := round(x * Max / Width);
+        Position    := newPosition;
+        DrawInternalBMP;
+      end;
+  end
   else
-    begin
-      Cursor := crDefault;
-      Seeking := False;
-    end;
+  begin
+    Cursor  := crDefault;
+    Seeking := False;
+  end;
   inherited MouseMove(Shift, X, Y);
 end;
 
@@ -168,18 +186,25 @@ begin
   DrawInternalBMP;
 end;
 
-constructor TImageTrack.Create(AOwner: Tcomponent);
+constructor TImageTrack.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FMin := 0;
-  FMax := 100;
+  FMin      := 0;
+  FMax      := 100;
   FPosition := 50;
 
-  FBackGroundImage:= TPicture.Create;
-  FForeGroundImage:= TPicture.Create;
-  fInternalBMP := TBitmap.Create;
-  fInternalBMP.SetSize(0,0);
-  fInternalBMP.Transparent:=true;
+  FBackGroundImage := TPicture.Create;
+  FForeGroundImage := TPicture.Create;
+  fInternalBMP     := TBitmap.Create;
+  fInternalBMP.SetSize(0, 0);
+
 end;
+
+
+procedure TImageTrack.EraseBackground(DC: HDC);
+begin
+  //  inherited EraseBackground(DC);
+end;
+
 
 end.
