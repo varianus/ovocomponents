@@ -15,13 +15,10 @@ This components are licensed under a modified LGPL license which allow linking o
 ### Visual / helper components
 - `fontimagelist.pas` — A FontImageList component: draw icons from fonts or font-based glyph sets into an image list for use in UI controls.
 - `fontimagelisteditor.pas` / `fontimagelisteditor.lfm` — Editor form and Lazarus form file used to edit FontImageList entries inside the IDE.
-- `iconrender.pas` — Helper unit to render icons (likely used by OSD, toolbar or lists).
-- `imagetrack.pas` — Component for image tracking/display (used for cover art, animated images, or image lists tied to tracks)
+- `iconrender.pas` — Helper unit to render icons
+- `imagetrack.pas` — An image based trackbar
 
 ### Sliders and skins
-- `slider.pas` — Base/custom slider control used by the application.
-- `skinnedslider.pas` — Skinned slider control with custom drawing and styling.
-- `skinnedslider_icon.lrs` — Resource file used by the skinned slider (contains embedded images/icons used by the component).
 - `themedslider.pas` — Themed slider variant that adapts to application theme or style.
 
 ### Subdirectories
