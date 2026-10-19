@@ -136,12 +136,13 @@ const
   FrameWidth = 1;
 begin
   HalfSlider := FSliderwidth div 2;
+  InternalBitmap.SetSize(Width, Height);
 
   InternalBitmap.canvas.Brush.Color := WidgetSet.GetSysColor(COLOR_BTNFACE);
   InternalBitmap.Canvas.FillRect(0, 0, InternalBitmap.Width, InternalBitmap.Height);
 
-  InternalBitmap.Transparent := True;
-  InternalBitmap.TransparentMode := tmAuto;
+  // InternalBitmap.Transparent := True;
+  // InternalBitmap.TransparentMode := tmAuto;
   RectInnerArea := rect(BorderWidth, BorderWidth, Width - BorderWidth, Height - BorderWidth);
   WidgetSet.Frame3d(InternalBitmap.canvas.Handle, RectInnerArea, FrameWidth, bvLowered);
   RectInnerArea.Inflate(-FrameWidth, -FrameWidth);
@@ -182,16 +183,16 @@ begin
   end;
 
 
-  case FOrientation of
-    ttsHorizontal: RectFilled := Rect(pos + HalfSlider, RectInnerArea.Top, RectInnerArea.Right, RectInnerArea.Bottom);
-    ttsVertical: RectFilled   := Rect(RectInnerArea.left, RectInnerArea.top, RectInnerArea.Right, RectInnerArea.top + invpos - HalfSlider);
-  end;
+  //  case FOrientation of
+  //    ttsHorizontal: RectFilled := Rect(pos + HalfSlider, RectInnerArea.Top, RectInnerArea.Right, RectInnerArea.Bottom);
+  //    ttsVertical: RectFilled   := Rect(RectInnerArea.left, RectInnerArea.top, RectInnerArea.Right, RectInnerArea.top + invpos - HalfSlider);
+  //  end;
 
-  if pos < SlidingDimension - SLIDERWIDTH then
-  begin
-    InternalBitmap.canvas.Brush.Color := WidgetSet.GetSysColor(COLOR_WINDOW);
-    InternalBitmap.Canvas.FillRect(RectFilled);
-  end;
+  //  if pos < SlidingDimension - SLIDERWIDTH then
+  //  begin
+  //    InternalBitmap.canvas.Brush.Color := WidgetSet.GetSysColor(COLOR_WINDOW);
+  //    InternalBitmap.Canvas.FillRect(RectFilled);
+  //  end;
 
   case FOrientation of
     ttsHorizontal: RectSlider := Rect(pos - HalfSlider, BorderWidth div 2, pos + HalfSlider, Height - (BorderWidth div 2));
@@ -283,6 +284,8 @@ begin
     tmppos := FMax - tmppos;
 
   fPosition := tmppos;
+  if Assigned(FOnChange) then
+    FOnChange(self);
   RedrawControl;
 
 end;
@@ -298,8 +301,6 @@ begin
       ttsVertical: Cursor   := crVSplit;
     end;
     Seek(X, Y);
-    if Assigned(FOnChange) then
-      FOnChange(self);
   end
   else
   begin
