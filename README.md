@@ -1,11 +1,13 @@
-# src/components
+
+# **ATTENTION - This components are under developmment.  **
 
 This directory contains custom Lazarus / Free Pascal visual components and a Lazarus package used by OvoPlayer, OvoText and others of my applications. The components provide UI widgets and helper classes used across the application (sliders, image/icon helpers, registration unit, etc.).
+
+# OvoComponents
 
 ## License
 
 This components are licensed under a modified LGPL license which allow linking on executables, see [this link](https://wiki.freepascal.org/FPC_modified_LGPL) for details. 
-
 
 ## Contents
 
