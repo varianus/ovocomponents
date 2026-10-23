@@ -23,7 +23,7 @@ type
   end;
 
   { TFontImageFontEditor }
-(*
+
   TFontImageFontEditor = class(TStringPropertyEditor)
   public
     procedure Edit; override;
@@ -31,7 +31,7 @@ type
     function GetAttributes: TPropertyAttributes; override;
     function GetValue: string; override;
   end;
-*)
+
   { TFontImageList }
 
   TFontImageList = class(TCustomImageList)
@@ -50,11 +50,6 @@ type
     procedure DefineProperties(Filer: TFiler); override;
     procedure SetWidth(AValue: integer);
     procedure SetHeight(AValue: integer);
-    procedure RegenerateImages;
-  public
-    property FontStream:TMemoryStream read FFontData;
-    constructor Create(AOwner: TComponent); override;
-    destructor Destroy; override;
     procedure WriteGlyphData(AStream: TStream);
     procedure ReadGliphData(AStream: TStream);
     procedure WriteFontData(AStream: TStream);
@@ -63,15 +58,21 @@ type
     procedure ReadData(AStream: TStream); override;
     procedure WriteAdvData(AStream: TStream); override;
     procedure ReadAdvData(AStream: TStream); override;
-
+  public
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+    procedure RegenerateImages;
+    procedure CustomRender(AImageList: TCustomImageList; const AColor: TColor; const Size: TSize; const CodeList: array of cardinal);
     property Glyphs: TFontImageDataArray read FGlyphs write SetGlyphs;
   published
     property OnInitialize: TNotifyEvent read FOnInitialize write SetOnInitialize;
     property Height write SetHeight;
     property Width write SetWidth;
     property Scaled;
-
+    property FontStream: TMemoryStream read FFontData;
   end;
+
+
 
 implementation
 
@@ -121,23 +122,24 @@ begin
   Self[AIndex] := Self[AIndex + 1];
   Self[AIndex + 1] := TempGlyph;
 end;
-(*
+
 { TFontImageFontEditor }
 
 procedure TFontImageFontEditor.Edit;
 var
   TheDialog: TOpenDialog;
-  Comp: TFontImageList;
+  comp: TFontImageList;
   Hook: TPropertyEditorHook;
 begin
-  Comp := TFontImageList(GetComponent(0));
+  comp      := TFontImageList(GetComponent(0));
   TheDialog := CreateDlg;
   try
-  if TheDialog.Execute then
-     begin
-       Comp.FFontData.LoadFromFile(TheDialog.FileName);
-       Comp.RegenerateImages;
-     end;
+    if TheDialog.Execute then
+    begin
+      comp.FFontData.Clear;
+      comp.FFontData.LoadFromFile(TheDialog.FileName);
+      comp.RegenerateImages;
+    end;
 
   finally
     TheDialog.Free;
@@ -147,7 +149,8 @@ end;
 function TFontImageFontEditor.CreateDlg: TOpenDialog;
 begin
   Result := TOpenDialog.Create(nil);
-  Result.Filter := 'Fonts|*.ttf;*.otf';
+  Result.Filter := 'TrueType Fonts|*.ttf;*.otf';
+  Result.Options := [ofFileMustExist];
 
 end;
 
@@ -158,15 +161,15 @@ end;
 
 function TFontImageFontEditor.GetValue: string;
 var
-  Comp: TFontImageList;
+  comp: TFontImageList;
 begin
-  Comp := TFontImageList(GetComponent(0));
-   if (Comp <> nil) and (Comp.FFontData.Size > 0) then
-     Result := Format('(%d Bytes Embedded)', [Comp.FFontData.Size])
-   else
-     Result := '(Empty)';
+  comp := TFontImageList(GetComponent(0));
+  if (comp <> nil) and (comp.FFontData.Size > 0) then
+    Result := '(FontData)'
+  else
+    Result := '(Empty)';
 end;
-  *)
+
 { TFontImageList }
 
 constructor TFontImageList.Create(AOwner: TComponent);
@@ -241,17 +244,18 @@ end;
 procedure TFontImageList.WriteFontData(AStream: TStream);
 begin
   FFontData.Position := 0;
-  AStream.Write(FFontData.Size,SizeOf(int64));
+  AStream.Write(FFontData.Size, SizeOf(int64));
   if FFontData.Size > 0 then
     AStream.CopyFrom(FFontData, FFontData.Size);
 end;
 
 procedure TFontImageList.ReadFontData(AStream: TStream);
-var ASize: Int64;
+var
+  ASize: int64;
 begin
   ASize := AStream.ReadQWord;
   if ASize > 0 then
-    FFontData.CopyFrom(AStream,ASize);
+    FFontData.CopyFrom(AStream, ASize);
 end;
 
 procedure TFontImageList.WriteData(AStream: TStream);
@@ -305,17 +309,24 @@ var
   Item: TFontImageData;
   IconRenderer: TIconRenderer;
   bmp: TBitMap;
+  CurrRes: TCustomImageListResolution;
+  Res: array of integer;
+  Bitmaps: array of TRasterImage;
+  i: Integer;
 begin
   if FIsLoading or (csLoading in ComponentState) then Exit;
   if FFontData.Size = 0 then
-     exit;
+    exit;
   Clear;
-  RegisterResolutions([Height]);
+  SetLength(Res, 3);
+  SetLength(Bitmaps, 3);
 
+  Res[0] := Height;
+  Res[1] := trunc(Height * 1.5);
+  Res[2] := Height * 2;
+  RegisterResolutions(res);
   try
     IconRenderer := TIconRenderer.Create(FFontData);
-    IconRenderer.SetSize(Height, Width, Scaled); // Scaling occurs inside object, no need to do it here
-
     for item in FGlyphs do
     begin
       if IsSysColor(Item.Color) then
@@ -323,18 +334,36 @@ begin
       else
         IconRenderer.Color := Item.Color;
 
-      Bmp := TBitmap.Create;
-      try
-        IconRenderer.getGlyph(Item.GliphIndex, bmp); //;then
-        Add(bmp, nil);
-      finally
-        Bmp.Free;
+      for i := 0 to 2 do
+      begin
+        //  IconRenderer.SetSize(Height, Width, Scaled); // Scaling occurs inside object, no need to do it here
+        IconRenderer.SetSize(Res[I], Res[i], Scaled); // Scaling occurs inside object, no need to do it here
+
+        bmp := TBitmap.Create;
+        IconRenderer.getGlyph(Item.GliphIndex, Bmp); //;then
+        Bitmaps[i] := bmp;
       end;
+      AddMultipleResolutions(Bitmaps);
+      for i := 0 to 2 do
+        Bitmaps[i].Free;
     end;
 
   finally
     IconRenderer.Free;
   end;
+end;
+
+procedure TFontImageList.CustomRender(AImageList: TCustomImageList; const AColor: TColor; const Size: TSize;
+  const CodeList: array of cardinal);
+var
+  iconRender: TIconRenderer;
+begin
+  iconRender := TIconRenderer.Create(FFontData);
+  iconRender.Color := AColor;
+  iconRender.SetSize(size.cx, Size.cy);
+  iconRender.AddToImageList(AImageList, CodeList);
+  iconRender.Free;
+
 end;
 
 
