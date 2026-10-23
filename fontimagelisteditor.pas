@@ -50,7 +50,7 @@ type
   public
     property Glyphs: TFontImageDataArray read FGlyphs write SetGlyphs;
     property FontStream: TStream read FFontStream;
-    constructor Create(AOwner: TComponent; AFontStream: TStream);
+    constructor Create(AOwner: TComponent; AFontStream: TStream);  reintroduce;
     destructor Destroy; override;
     property SelectedChar: string read FSelectedChar;
 
@@ -89,7 +89,8 @@ begin
   if code > IconRenderer.Count - 1 then
     exit;
 
-  IconRenderer.Color := clWindowText;
+  IconRenderer.Color := GetSysColor(SysColorToSysColorIndex(clWindowText));
+
   Bmp := TBitmap.Create;
   try
     if IconRenderer.getGlyph(code, Bmp) then
@@ -155,6 +156,7 @@ begin
   NewRow := FGlyphs.AddGlyph(-1, clWindowText);
   grdGlyphs.RowCount := Length(FGlyphs);
   grdGlyphs.InvalidateRow(NewRow);
+  grdGlyphs.Selection:=Rect(0, NewRow, 1,NewRow);
 end;
 
 procedure TFontImageListDialog.btnDeleteClick(Sender: TObject);
@@ -219,7 +221,11 @@ begin
     1:
     begin
       IconRenderer.SetSize(48, 46);
-      IconRenderer.Color := Glyphs[aRow].Color;
+      if IsSysColor(Glyphs[aRow].Color) then
+        IconRenderer.Color := GetSysColor(SysColorToSysColorIndex(Glyphs[aRow].Color))
+      else
+        IconRenderer.Color := Glyphs[aRow].Color;
+
       Bmp := TBitmap.Create;
       try
         if IconRenderer.getGlyph(Glyphs[aRow].GliphIndex, Bmp) then
@@ -250,6 +256,9 @@ procedure TFontImageListDialog.Preview(Item: integer);
 var
   Bmp: TBitmap;
 begin
+  if (item < 0) or (item > Length(Glyphs) -1) then
+    exit;
+
   intBmp.SetSize(pbTesting.Width, pbTesting.Height);
 
   intbmp.Canvas.Brush.Color := LightColors[COLOR_WINDOW];
@@ -316,6 +325,7 @@ begin
   if FGlyphs = AValue then Exit;
   FGlyphs := AValue;
   grdGlyphs.RowCount := Length(Glyphs);
+  Preview(0);
 end;
 
 constructor TFontImageListDialog.Create(AOwner: TComponent; AFontStream: TStream);
@@ -328,7 +338,6 @@ begin
   intBmp.SetSize(pbTesting.Width, pbTesting.Height);
   IconRenderer := TIconRenderer.Create(FFontStream);
   IconRenderer.SetSize(grdFont.DefaultRowHeight - 4, grdFont.DefaultRowHeight - 4, True); // Scaling occurs inside object, no need to do it here
-
   grdFont.RowCount := ceil(IconRenderer.Count / grdFont.ColCount);
 
 end;
