@@ -11,14 +11,22 @@ uses
   {$ENDIF}
   Interfaces, // this includes the LCL widgetset
   Forms, Unit1, ovocomponents
+{  uDarkStyleParams,
+  uDarkStyleSchemes,
+  uMetaDarkStyle}
   { you can add units after this };
 
 {$R *.res}
 
 begin
   RequireDerivedFormResource := True;
+
+//  PreferredAppMode   := pamDefault;
+//  uMetaDarkStyle.ApplyMetaDarkStyle(DefaultDark);
+
   Application.Scaled := True;
   {$PUSH}{$WARN 5044 OFF}
+
   Application.MainFormOnTaskbar := True;
   {$POP}
   Application.Initialize;
