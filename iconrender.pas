@@ -3,7 +3,7 @@ unit iconrender;
 interface
 
 uses
-  Classes, SysUtils, Graphics, imglist, fpimage, LCLType, IntfGraphics, GraphType, EasyLazFreeType, LazFreeTypeIntfDrawer, Forms;
+  Classes, SysUtils, Graphics, ImgList, fpimage, LCLType, IntfGraphics, GraphType, EasyLazFreeType, LazFreeTypeIntfDrawer, Forms;
 
 type
 
@@ -19,6 +19,8 @@ type
     procedure SetColor(AValue: TColor);
     procedure SetDefaults;
   public
+    class function CheckFont(AStream: TStream; out Info: string): boolean;
+    class function FontInformation(AStream: TStream; Info: TStrings): boolean;
     constructor Create(AStream: TStream);
     destructor Destroy; override;
     function AddToImageList(imageList: TCustomImageList; const CodeList: array of cardinal): integer;
@@ -27,7 +29,7 @@ type
     property ImageSize: integer read FimageSize;
     property Color: TColor read FColor write SetColor;
     function getIcon(CharCode: cardinal; Image: TBitmap): boolean;
-    function getGlyph(iconIndex: Integer; Image: TBitmap): boolean;
+    function getGlyph(iconIndex: integer; Image: TBitmap): boolean;
     property Count: integer read GetCount;
   end;
 
@@ -37,16 +39,16 @@ implementation
 uses lazutf8, LCLIntf;
 
 
-{ TIconRenderer }
+  { TIconRenderer }
 
-function TIconRenderer.getGlyph(iconIndex: Integer; Image: TBitmap):boolean;
+function TIconRenderer.getGlyph(iconIndex: integer; Image: TBitmap): boolean;
 var
   IntImage: TLazIntfImage;
   freeTypePainter: TIntfFreeTypeDrawer; //TFPImageFreeTypeDrawer;
   fontColor: TFPColor;
 begin
   try
-    IntImage := TLazIntfImage.Create(0, 0, [riqfRGB, riqfAlpha]);
+    IntImage  := TLazIntfImage.Create(0, 0, [riqfRGB, riqfAlpha]);
     freeTypePainter := TIntfFreeTypeDrawer.Create(IntImage);
     fontColor := TColorToFPColor(FColor);
     try
@@ -55,7 +57,7 @@ begin
       if iconIndex > -1 then
         freeTypePainter.DrawGlyph(iconIndex, FFontData, FImageSize div 2, FImageSize div 2, fontColor, [ftaCenter, ftaVerticalCenter]);
       Image.LoadFromIntfImage(IntImage);
-       Result := True;
+      Result := True;
     finally
       freeTypePainter.Free;
       IntImage.Free;
@@ -66,7 +68,7 @@ begin
 end;
 
 
-function TIconRenderer.getIcon(CharCode: cardinal; Image: TBitmap):boolean;
+function TIconRenderer.getIcon(CharCode: cardinal; Image: TBitmap): boolean;
 var
   IntImage: TLazIntfImage;
   freeTypePainter: TIntfFreeTypeDrawer; //TFPImageFreeTypeDrawer;
@@ -74,7 +76,7 @@ var
   utf8Value: string;
 begin
   try
-    IntImage := TLazIntfImage.Create(0, 0, [riqfRGB, riqfAlpha]);
+    IntImage  := TLazIntfImage.Create(0, 0, [riqfRGB, riqfAlpha]);
     freeTypePainter := TIntfFreeTypeDrawer.Create(IntImage);
     utf8Value := UnicodetoUTF8(CharCode);
     fontColor := TColorToFPColor(FColor);
@@ -83,7 +85,7 @@ begin
       freeTypePainter.FillPixels(colTransparent);
       freeTypePainter.DrawText(utf8Value, FFontData, FImageSize div 2, FImageSize div 2, fontColor, [ftaCenter, ftaVerticalCenter]);
       Image.LoadFromIntfImage(IntImage);
-      REsult := true;
+      Result := True;
     finally
       freeTypePainter.Free;
       IntImage.Free;
@@ -96,21 +98,21 @@ end;
 
 procedure TIconRenderer.SetSize(const AImageSize: integer; const FontSize: integer; AutoScale: boolean = True);
 var
-  DPI : integer;
+  DPI: integer;
 begin
-//  DPI := 96;
+  //  DPI := 96;
   DPI := Screen.PixelsPerInch;
   FFontData.DPI := DPI;
 
   if AutoScale then
   begin
     FImageSize := MulDiv(AImageSize, DPI, 96);
-    FSize := MulDiv(FontSize, DPI, 96);
+    FSize      := MulDiv(FontSize, DPI, 96);
   end
   else
   begin
     FImageSize := AImageSize;
-    FSize := FontSize;
+    FSize      := FontSize;
   end;
 
   FFontData.SizeInPixels := FSize;
@@ -120,9 +122,9 @@ end;
 
 procedure TIconRenderer.SetDefaults;
 begin
-  FFontData.Hinted := false; // setting to true create strange artifact...
+  FFontData.Hinted    := False; // setting to true create strange artifact...
   FFontData.ClearType := True;
-  FFontData.Quality := grqHighQuality;
+  FFontData.Quality   := grqHighQuality;
   FFontData.SmallLinePadding := True;
 end;
 
@@ -150,7 +152,7 @@ var
 begin
   Result := 0;
   try
-    bmp := TBitmap.Create;
+    bmp   := TBitmap.Create;
     image := TLazIntfImage.Create(0, 0, [riqfRGB, riqfAlpha]);
     freeTypePainter := TIntfFreeTypeDrawer.Create(image);
     fontColor := TColorToFPColor(FColor);
@@ -174,6 +176,60 @@ begin
     Result := -1;
   end;
 end;
+
+
+class function TIconRenderer.CheckFont(AStream: TStream; Out Info: string): boolean;
+var
+  TestFontData: TFreeTypeFont;
+begin
+  TestFontData := TFreeTypeFont.Create;
+  try
+    AStream.Position := 0;
+    try
+      TestFontData.AccessFromStream(AStream, False);
+      Info   := TestFontData.Information[ftiFullName];
+      Result := True;
+    except
+      On e: Exception do
+      begin
+        Result := False;
+        Info   := e.Message;
+      end;
+    end;
+
+  finally
+    TestFontData.Free;
+  end;
+end;
+
+class function TIconRenderer.FontInformation(AStream: TStream; Info: TStrings): boolean;
+var
+  TestFontData: TFreeTypeFont;
+  CurrInfo: TFreeTypeInformation;
+begin
+  Info.Clear;
+  TestFontData := TFreeTypeFont.Create;
+  try
+    AStream.Position := 0;
+    try
+      TestFontData.AccessFromStream(AStream, False);
+      for CurrInfo in TFreeTypeInformation do
+        Info.Values[FreeTypeInformationStr[CurrInfo]] := TestFontData.Information[CurrInfo];
+      Result := True;
+    except
+      On e: Exception do
+      begin
+        Result := False;
+        Info.Clear;
+        Info.Values['ERROR'] := e.Message;
+      end;
+    end;
+
+  finally
+    TestFontData.Free;
+  end;
+end;
+
 
 
 constructor TIconRenderer.Create(AStream: TStream);

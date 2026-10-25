@@ -6,21 +6,29 @@ interface
 
 uses
   Classes, Windows, SysUtils, Forms, Controls, Graphics, Dialogs, Grids, ButtonPanel, ExtCtrls, ComCtrls, ColorBox,
-  GraphMath, FontImageList, iconrender, Types, Math, ComponentEditors;
+  StdCtrls, GraphMath, FontImageList, iconrender, Types, Math, ComponentEditors;
 
 type
 
   { TFontImageListDialog }
 
   TFontImageListDialog = class(TForm)
+    bLoadFont: TButton;
+    bClearFont: TButton;
     ButtonPanel1: TButtonPanel;
     ColorBox1: TColorBox;
     ColorDialog1: TColorDialog;
     grdFont: TDrawGrid;
     grdGlyphs: TDrawGrid;
+    lbFontName: TLabel;
+    pcMain: TPageControl;
+    pnlButtons: TPanel;
     pbTesting: TPaintBox;
-    Panel1: TPanel;
-    Panel2: TPanel;
+    pnlGlyphs: TPanel;
+    pnlPreview: TPanel;
+    grdFontInfo: TStringGrid;
+    tsGlyphs: TTabSheet;
+    tsFontInfo: TTabSheet;
     ToolBar1: TToolBar;
     btnAdd: TToolButton;
     btnDelete: TToolButton;
@@ -30,6 +38,8 @@ type
     procedure btnDeleteClick(Sender: TObject);
     procedure btnDownClick(Sender: TObject);
     procedure btnUpClick(Sender: TObject);
+    procedure bLoadFontClick(Sender: TObject);
+    procedure bClearFontClick(Sender: TObject);
     procedure ColorBox1Change(Sender: TObject);
     procedure ColorBox1Exit(Sender: TObject);
     procedure grdFontDblClick(Sender: TObject);
@@ -39,18 +49,23 @@ type
     procedure grdGlyphsSelectEditor(Sender: TObject; aCol, aRow: integer; var Editor: TWinControl);
     procedure grdGlyphsSelection(Sender: TObject; aCol, aRow: integer);
     procedure pbTestingPaint(Sender: TObject);
+    procedure tsFontInfoShow(Sender: TObject);
   private
-    FFontStream: TStream;
+    FFontStream: TMemoryStream;
     FGlyphs: TFontImageDataArray;
     FSelectedChar: string;
     IconRenderer: TIconRenderer;
     intBmp: TBitmap;
+    NoFont: boolean;
+    function CreateDlg: TOpenDialog;
+    procedure Edit;
     procedure Preview(Item: integer);
+    procedure LoadFont;
     procedure SetGlyphs(AValue: TFontImageDataArray);
   public
     property Glyphs: TFontImageDataArray read FGlyphs write SetGlyphs;
-    property FontStream: TStream read FFontStream;
-    constructor Create(AOwner: TComponent; AFontStream: TStream);  reintroduce;
+    property FontStream: TMemoryStream read FFontStream;
+    constructor Create(AOwner: TComponent; AFontStream: TStream); reintroduce;
     destructor Destroy; override;
     property SelectedChar: string read FSelectedChar;
 
@@ -85,6 +100,9 @@ var
   Code: word;
   Bmp: TBitmap;
 begin
+  if NoFont then
+    exit;
+
   Code := aRow * grdFont.ColCount + aCol;
   if code > IconRenderer.Count - 1 then
     exit;
@@ -108,6 +126,7 @@ var
   CellRect: TRect;
   ARow, ACol: integer;
 begin
+
   ARow := grdGlyphs.Row;
   ACol := grdGlyphs.Col;
   if (aCol = 2) and (aRow >= grdGlyphs.FixedRows) then
@@ -138,6 +157,9 @@ procedure TFontImageListDialog.grdFontDblClick(Sender: TObject);
 var
   Code: word;
 begin
+  if NoFont then
+    exit;
+
   Code := grdFont.Row * grdFont.ColCount + grdFont.Col;
   if code > IconRenderer.Count - 1 then
     exit;
@@ -156,7 +178,7 @@ begin
   NewRow := FGlyphs.AddGlyph(-1, clWindowText);
   grdGlyphs.RowCount := Length(FGlyphs);
   grdGlyphs.InvalidateRow(NewRow);
-  grdGlyphs.Selection:=Rect(0, NewRow, 1,NewRow);
+  grdGlyphs.Selection := Rect(0, NewRow, 1, NewRow);
 end;
 
 procedure TFontImageListDialog.btnDeleteClick(Sender: TObject);
@@ -189,6 +211,18 @@ begin
   grdGlyphs.Invalidate;
 end;
 
+procedure TFontImageListDialog.bLoadFontClick(Sender: TObject);
+begin
+  Edit;
+end;
+
+procedure TFontImageListDialog.bClearFontClick(Sender: TObject);
+begin
+  FFontStream.Clear;
+  NoFont := FFontStream.Size = 0;
+  LoadFont;
+end;
+
 procedure TFontImageListDialog.ColorBox1Change(Sender: TObject);
 var
   CurrentRow: integer;
@@ -213,6 +247,7 @@ procedure TFontImageListDialog.grdGlyphsDrawCell(Sender: TObject; aCol, aRow: in
 var
   Bmp: TBitmap;
 begin
+
   if aRow >= length(Glyphs) then
     exit;
   case aCol of
@@ -220,7 +255,10 @@ begin
       grdGlyphs.Canvas.TextOut(aRect.Left, aRect.Top, IntToStr(aRow));
     1:
     begin
-      IconRenderer.SetSize(48, 46);
+      if NoFont then
+        exit;
+
+      IconRenderer.SetSize(grdGlyphs.DefaultColWidth, grdGlyphs.DefaultRowHeight);
       if IsSysColor(Glyphs[aRow].Color) then
         IconRenderer.Color := GetSysColor(SysColorToSysColorIndex(Glyphs[aRow].Color))
       else
@@ -256,7 +294,8 @@ procedure TFontImageListDialog.Preview(Item: integer);
 var
   Bmp: TBitmap;
 begin
-  if (item < 0) or (item > Length(Glyphs) -1) then
+
+  if (item < 0) or (item > Length(Glyphs) - 1) then
     exit;
 
   intBmp.SetSize(pbTesting.Width, pbTesting.Height);
@@ -267,6 +306,8 @@ begin
   intbmp.Canvas.Brush.Color := DarkColors[COLOR_WINDOW];
   intBmp.Canvas.Rectangle(intBmp.Width div 2, 0, intBmp.Width, intBmp.Height);
 
+  if NoFont then
+    exit;
 
   Bmp := TBitmap.Create;
   try
@@ -320,6 +361,35 @@ begin
   pbTesting.Canvas.Draw(0, 0, intBmp);
 end;
 
+procedure TFontImageListDialog.tsFontInfoShow(Sender: TObject);
+var
+  Infos: TStringList;
+  i: integer;
+begin
+  if NoFont then
+  begin
+    grdFontInfo.Clear;
+    exit;
+  end
+  else
+  begin
+    Infos := TStringList.Create;
+    try
+      TIconRenderer.FontInformation(FFontStream, Infos);
+
+      grdFontInfo.RowCount := Infos.Count;
+      for i := 0 to Infos.RowCount - 1 do
+      begin
+        grdFontInfo.Cells[0, i] := Infos.Names[i];
+        grdFontInfo.Cells[1, i] := Infos.ValueFromIndex[i];
+
+      end;
+    finally
+      Infos.Free;
+    end;
+  end;
+end;
+
 procedure TFontImageListDialog.SetGlyphs(AValue: TFontImageDataArray);
 begin
   if FGlyphs = AValue then Exit;
@@ -331,14 +401,68 @@ end;
 constructor TFontImageListDialog.Create(AOwner: TComponent; AFontStream: TStream);
 begin
   inherited Create(nil);
-  FFontStream := AFontStream;
- // OutputDebugString(('STREAM SIZE '+INTTOSTR(FFontStream.Size));
-  AFontStream.Position := 0;
+  FFontStream := TMemoryStream.Create;
+  FFontStream.LoadFromStream(AFontStream);
+  NoFont := FFontStream.Size = 0;
+  FFontStream.Position := 0;
   IntBmp := TBitmap.Create;
   intBmp.SetSize(pbTesting.Width, pbTesting.Height);
-  IconRenderer := TIconRenderer.Create(FFontStream);
-  IconRenderer.SetSize(grdFont.DefaultRowHeight - 4, grdFont.DefaultRowHeight - 4, True); // Scaling occurs inside object, no need to do it here
-  grdFont.RowCount := ceil(IconRenderer.Count / grdFont.ColCount);
+  LoadFont;
+end;
+
+procedure TFontImageListDialog.LoadFont;
+begin
+  if FFontStream.Size = 0 then
+    grdFont.RowCount := 1
+  else
+  begin
+    if Assigned(IconRenderer) then
+      IconRenderer.Free;
+
+    IconRenderer := TIconRenderer.Create(FFontStream);
+    IconRenderer.SetSize(grdFont.DefaultRowHeight - 4, grdFont.DefaultRowHeight - 4, True); // Scaling occurs inside object, no need to do it here
+    grdFont.RowCount := ceil(IconRenderer.Count / grdFont.ColCount);
+
+  end;
+  Invalidate;
+end;
+
+procedure TFontImageListDialog.Edit;
+var
+  TheDialog: TOpenDialog;
+  Info: string;
+begin
+  TheDialog := CreateDlg;
+  try
+    if TheDialog.Execute then
+    begin
+      FFontStream.Clear;
+      FFontStream.LoadFromFile(TheDialog.FileName);
+      if not TIconRenderer.CheckFont(FFontStream, Info) then
+      begin
+        ShowMessage('Invalid or corrupted font file detected' + sLineBreak +
+          'Please load a valid TrueTypeFont.');
+        NoFont := True;
+      end
+      else
+        lbFontName.Caption := Info;
+        if pcMain.ActivePage = tsFontInfo then
+          tsFontInfoShow(tsFontInfo);
+
+
+      LoadFont;
+    end;
+
+  finally
+    TheDialog.Free;
+  end;
+end;
+
+function TFontImageListDialog.CreateDlg: TOpenDialog;
+begin
+  Result := TOpenDialog.Create(nil);
+  Result.Filter := 'TrueType Fonts|*.ttf;*.otf';
+  Result.Options := [ofFileMustExist];
 
 end;
 
@@ -377,14 +501,14 @@ begin
   ImageList := TFontImageList(GetComponent);
   GetHook(Hook);
 
-  If ImageList.FontStream.Size = 0 then
+  if ImageList.FontStream.Size = 0 then
     Index := 1;
 
   case Index of
     0: begin
       FontImageListDialog := TFontImageListDialog.Create(Application, ImageList.FontStream);
       try
-        FontImageListDialog.Glyphs     := ImageList.Glyphs;
+        FontImageListDialog.Glyphs := ImageList.Glyphs;
         if FontImageListDialog.ShowModal = mrOk then
         begin
           ImageList.Glyphs := FontImageListDialog.Glyphs;
@@ -398,12 +522,12 @@ begin
     1: begin
       TheDialog := TOpenDialog.Create(Application);
       TheDialog.Filter := 'TrueType Fonts|*.ttf;*.otf';
-      TheDialog.Options:=[ofFileMustExist];
+      TheDialog.Options := [ofFileMustExist];
       OutputDebugString('After filter');
       try
         if TheDialog.Execute then
         begin
-            OutputDebugString('After execute');
+          OutputDebugString('After execute');
           ImageList.FontStream.LoadFromFile(TheDialog.FileName);
           if Assigned(Hook) then
             Hook.Modified(Self);

@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ComCtrls, StdCtrls, ExtCtrls, FontImageList, ThemedSlider,
-  ImageTrack, fontimagelisteditor, UMetaDarkStyle;
+  ImageTrack, fontimagelisteditor;
 
 type
 
