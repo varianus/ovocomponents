@@ -46,10 +46,6 @@
         <HasRegisterProc Value="True"/>
         <UnitName Value="registerovocomponents"/>
       </Item>
-      <Item>
-        <Filename Value="skinnedslider.pas"/>
-        <UnitName Value="SkinnedSlider"/>
-      </Item>
     </Files>
     <RequiredPkgs>
       <Item>

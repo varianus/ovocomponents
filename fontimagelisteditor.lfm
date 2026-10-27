@@ -2,15 +2,15 @@ object FontImageListDialog: TFontImageListDialog
   Left = 300
   Height = 555
   Top = 250
-  Width = 821
+  Width = 807
   ClientHeight = 555
-  ClientWidth = 821
+  ClientWidth = 807
   LCLVersion = '5.99.0.0'
   object ButtonPanel1: TButtonPanel
     Left = 6
     Height = 34
     Top = 515
-    Width = 809
+    Width = 795
     OKButton.Name = 'OKButton'
     OKButton.DefaultCaption = True
     HelpButton.Name = 'HelpButton'
@@ -27,10 +27,10 @@ object FontImageListDialog: TFontImageListDialog
     Left = 0
     Height = 509
     Top = 0
-    Width = 216
+    Width = 376
     Align = alLeft
     ClientHeight = 509
-    ClientWidth = 216
+    ClientWidth = 376
     TabOrder = 1
     object grdGlyphs: TDrawGrid
       Left = 1
@@ -78,7 +78,7 @@ object FontImageListDialog: TFontImageListDialog
       Left = 1
       Height = 55
       Top = 1
-      Width = 214
+      Width = 374
       ButtonHeight = 48
       ButtonWidth = 48
       Caption = 'ToolBar1'
@@ -126,29 +126,37 @@ object FontImageListDialog: TFontImageListDialog
       OnChange = ColorBox1Change
       OnExit = ColorBox1Exit
     end
+    object pbTesting: TPaintBox
+      Left = 201
+      Height = 452
+      Top = 56
+      Width = 174
+      Align = alClient
+      OnPaint = pbTestingPaint
+    end
   end
   object pnlPreview: TPanel
-    Left = 216
+    Left = 376
     Height = 509
     Top = 0
-    Width = 605
+    Width = 431
     Align = alClient
     ClientHeight = 509
-    ClientWidth = 605
+    ClientWidth = 431
     TabOrder = 2
     object pnlButtons: TPanel
       Left = 1
       Height = 58
       Top = 1
-      Width = 603
+      Width = 429
       Align = alTop
       ClientHeight = 58
-      ClientWidth = 603
+      ClientWidth = 429
       TabOrder = 0
       object bLoadFont: TButton
-        Left = 168
+        Left = 8
         Height = 25
-        Top = 8
+        Top = 16
         Width = 88
         AutoSize = True
         Caption = 'Load Font...'
@@ -156,9 +164,9 @@ object FontImageListDialog: TFontImageListDialog
         OnClick = bLoadFontClick
       end
       object bClearFont: TButton
-        Left = 264
+        Left = 104
         Height = 25
-        Top = 8
+        Top = 16
         Width = 80
         AutoSize = True
         Caption = 'Clear Font'
@@ -166,9 +174,9 @@ object FontImageListDialog: TFontImageListDialog
         OnClick = bClearFontClick
       end
       object lbFontName: TLabel
-        Left = 392
+        Left = 232
         Height = 15
-        Top = 16
+        Top = 24
         Width = 67
         Caption = '(Font Name)'
       end
@@ -177,28 +185,20 @@ object FontImageListDialog: TFontImageListDialog
       Left = 1
       Height = 449
       Top = 59
-      Width = 603
-      ActivePage = tsGlyphs
+      Width = 429
+      ActivePage = tsFontInfo
       Align = alClient
-      TabIndex = 0
+      TabIndex = 1
       TabOrder = 1
       object tsGlyphs: TTabSheet
         Caption = 'Glyphs'
         ClientHeight = 421
-        ClientWidth = 595
-        object pbTesting: TPaintBox
+        ClientWidth = 421
+        object grdFont: TDrawGrid
           Left = 0
           Height = 421
           Top = 0
-          Width = 168
-          Align = alLeft
-          OnPaint = pbTestingPaint
-        end
-        object grdFont: TDrawGrid
-          Left = 168
-          Height = 421
-          Top = 0
-          Width = 427
+          Width = 421
           Align = alClient
           ColCount = 8
           DefaultColWidth = 48
@@ -216,13 +216,13 @@ object FontImageListDialog: TFontImageListDialog
       object tsFontInfo: TTabSheet
         Caption = 'Font Info'
         ClientHeight = 421
-        ClientWidth = 595
+        ClientWidth = 421
         OnShow = tsFontInfoShow
         object grdFontInfo: TStringGrid
           Left = 0
           Height = 421
           Top = 0
-          Width = 595
+          Width = 421
           Align = alClient
           AutoEdit = False
           AutoFillColumns = True
@@ -232,20 +232,23 @@ object FontImageListDialog: TFontImageListDialog
             item
               SizePriority = 0
               Title.Caption = 'Title'
-              Width = 200
+              Width = 120
             end          
             item
               Title.Caption = 'Title'
-              Width = 395
+              Width = 301
             end>
           ExtendedSelect = False
           FixedCols = 0
           FixedRows = 0
-          Options = [goFixedHorzLine, goVertLine, goRangeSelect, goSmoothScroll]
+          Options = [goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goSmoothScroll]
+          RowCount = 1
           TabOrder = 0
+          OnPrepareCanvas = grdFontInfoPrepareCanvas
+          OnResize = grdFontInfoResize
           ColWidths = (
-            200
-            395
+            120
+            301
           )
         end
       end

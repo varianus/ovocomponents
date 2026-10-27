@@ -44,6 +44,8 @@ type
     procedure ColorBox1Exit(Sender: TObject);
     procedure grdFontDblClick(Sender: TObject);
     procedure grdFontDrawCell(Sender: TObject; aCol, aRow: integer; aRect: TRect; aState: TGridDrawState);
+    procedure grdFontInfoPrepareCanvas(Sender: TObject; aCol, aRow: integer; aState: TGridDrawState);
+    procedure grdFontInfoResize(Sender: TObject);
     procedure grdGlyphsDblClick(Sender: TObject);
     procedure grdGlyphsDrawCell(Sender: TObject; aCol, aRow: integer; aRect: TRect; aState: TGridDrawState);
     procedure grdGlyphsSelectEditor(Sender: TObject; aCol, aRow: integer; var Editor: TWinControl);
@@ -57,6 +59,7 @@ type
     IconRenderer: TIconRenderer;
     intBmp: TBitmap;
     NoFont: boolean;
+    procedure AutoSizeGridRowHeights(AGrid: TStringGrid);
     function CreateDlg: TOpenDialog;
     procedure Edit;
     procedure Preview(Item: integer);
@@ -119,6 +122,50 @@ begin
 
   end;
 
+end;
+
+procedure TFontImageListDialog.grdFontInfoPrepareCanvas(Sender: TObject; aCol, aRow: integer; aState: TGridDrawState);
+var
+  MyTextStyle: TTextStyle;
+begin
+  MyTextStyle := grdFontInfo.Canvas.TextStyle;
+  MyTextStyle.SingleLine := False; // Permette il testo su più righe
+  MyTextStyle.Wordbreak := True;
+  grdFontInfo.Canvas.TextStyle := MyTextStyle;
+
+end;
+
+procedure TFontImageListDialog.grdFontInfoResize(Sender: TObject);
+begin
+  AutoSizeGridRowHeights(grdFontInfo);
+end;
+
+
+procedure TFontImageListDialog.AutoSizeGridRowHeights(AGrid: TStringGrid);
+var
+  vRow: integer;
+  vRect: TRect;
+  vText: string;
+  vMaxHeight, vCellHeight: integer;
+  vTextStyle: TTextStyle;
+begin
+  for vRow := 0 to AGrid.RowCount - 1 do
+  begin
+    vMaxHeight := AGrid.DefaultRowHeight;
+    vText      := AGrid.Cells[1, vRow];
+    if vText <> '' then
+    begin
+      vRect := AGrid.CellRect(1, vRow);
+      vRect.Bottom := vRect.Top;
+      AGrid.Canvas.Font := AGrid.Font;
+      DrawText(AGrid.Canvas.Handle, PChar(vText), Length(vText), vRect,
+        DT_CALCRECT or DT_WORDBREAK or DT_NOPREFIX);
+      vCellHeight := (vRect.Bottom - vRect.Top) + 6;
+      if vCellHeight > vMaxHeight then
+        vMaxHeight := vCellHeight;
+    end;
+    AGrid.RowHeights[vRow] := vMaxHeight;
+  end;
 end;
 
 procedure TFontImageListDialog.grdGlyphsDblClick(Sender: TObject);
@@ -378,12 +425,12 @@ begin
       TIconRenderer.FontInformation(FFontStream, Infos);
 
       grdFontInfo.RowCount := Infos.Count;
-      for i := 0 to Infos.RowCount - 1 do
+      for i := 0 to Infos.Count - 1 do
       begin
         grdFontInfo.Cells[0, i] := Infos.Names[i];
         grdFontInfo.Cells[1, i] := Infos.ValueFromIndex[i];
-
       end;
+      AutoSizeGridRowHeights(grdFontInfo);
     finally
       Infos.Free;
     end;
@@ -446,8 +493,8 @@ begin
       end
       else
         lbFontName.Caption := Info;
-        if pcMain.ActivePage = tsFontInfo then
-          tsFontInfoShow(tsFontInfo);
+      if pcMain.ActivePage = tsFontInfo then
+        tsFontInfoShow(tsFontInfo);
 
 
       LoadFont;

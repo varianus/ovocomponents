@@ -8,8 +8,7 @@ unit ovocomponents;
 interface
 
 uses
-  ThemedSlider, ImageTrack, FontImageList, iconrender, fontimagelisteditor, registerovocomponents, SkinnedSlider, 
-  LazarusPackageIntf;
+  ThemedSlider, ImageTrack, FontImageList, iconrender, fontimagelisteditor, registerovocomponents, LazarusPackageIntf;
 
 implementation
 
