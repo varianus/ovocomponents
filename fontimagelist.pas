@@ -54,10 +54,6 @@ type
     procedure ReadGliphData(AStream: TStream);
     procedure WriteFontData(AStream: TStream);
     procedure ReadFontData(AStream: TStream);
-    procedure WriteData(AStream: TStream); override;
-    procedure ReadData(AStream: TStream); override;
-    procedure WriteAdvData(AStream: TStream); override;
-    procedure ReadAdvData(AStream: TStream); override;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -138,6 +134,7 @@ begin
     begin
       comp.FFontData.Clear;
       comp.FFontData.LoadFromFile(TheDialog.FileName);
+
       comp.RegenerateImages;
     end;
 
@@ -198,8 +195,15 @@ begin
 end;
 
 procedure TFontImageList.DefineProperties(Filer: TFiler);
+type
+  TDefinePropertiesProc = procedure(AFiler: TFiler) of object;
+var
+  M: TMethod;
 begin
-  inherited DefineProperties(Filer);
+  M.Code := @TComponent.DefineProperties;
+  M.Data := Self;
+  TDefinePropertiesProc(M)(Filer);
+
   Filer.DefineBinaryProperty('GlyphsData', ReadGliphData, WriteGlyphData, True);
   Filer.DefineBinaryProperty('FontData', ReadFontData, WriteFontData, True);
 end;
@@ -256,26 +260,6 @@ begin
   ASize := AStream.ReadQWord;
   if ASize > 0 then
     FFontData.CopyFrom(AStream, ASize);
-end;
-
-procedure TFontImageList.WriteData(AStream: TStream);
-begin
-  //Do nothing
-end;
-
-procedure TFontImageList.ReadData(AStream: TStream);
-begin
-  //Do nothing
-end;
-
-procedure TFontImageList.WriteAdvData(AStream: TStream);
-begin
-  //Do nothing
-end;
-
-procedure TFontImageList.ReadAdvData(AStream: TStream);
-begin
-  //Do nothing
 end;
 
 procedure TFontImageList.SetWidth(AValue: integer);
