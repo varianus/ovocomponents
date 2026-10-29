@@ -559,7 +559,9 @@ begin
         if FontImageListDialog.ShowModal = mrOk then
         begin
           ImageList.Glyphs := FontImageListDialog.Glyphs;
+          ImageList.FontStream.LoadFromStream(FontImageListDialog.FontStream);
           if Assigned(Hook) then Hook.Modified(Self);
+          ImageList.RegenerateImages;
         end;
       finally
         FontImageListDialog.Free;

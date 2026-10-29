@@ -13,6 +13,8 @@ type
     Color: TColor;
   end;
 
+  TFontImageList = class;
+
   TFontImageDataArray = array of TFontImageData;
 
   TFontImageDataArrayHelper = record helper for  TFontImageDataArray
@@ -21,6 +23,37 @@ type
     procedure MoveGlyphUp(AIndex: integer);
     procedure MoveGlyphDown(AIndex: integer);
   end;
+
+  { TFontImageResItem }
+
+  TFontImageResItem = class(TCollectionItem)
+  private
+    FResolution: integer;
+    procedure SetResolution(AValue: integer);
+  protected
+    function GetDisplayName: string; override;
+  public
+    constructor Create(ACollection: TCollection); override;
+    procedure Assign(Source: TPersistent); override;
+  published
+    property Resolution: integer read FResolution write SetResolution default 16;
+  end;
+
+  { TFontImageResCollection }
+
+  TFontImageResCollection = class(TOwnedCollection)
+  private
+    FImageList: TFontImageList;
+    function GetItem(AIndex: integer): TFontImageResItem;
+  protected
+    procedure Update(Item: TCollectionItem); override;
+  public
+    constructor Create(AImageList: TFontImageList); reintroduce;
+    function Add(AResolution: integer): TFontImageResItem; reintroduce;
+    property Items[AIndex: integer]: TFontImageResItem read GetItem; default;
+    function GetUniqueSortedResolutions: TIntegerDynArray;
+  end;
+
 
   { TFontImageFontEditor }
 
@@ -36,20 +69,22 @@ type
 
   TFontImageList = class(TCustomImageList)
   private
+    FDefaultResolution: integer;
     FIsLoading: boolean;
     FGlyphs: TFontImageDataArray;
     FOnInitialize: TNotifyEvent;
     FSize: TSize;
     FFontData: TMemoryStream;
     FDummy: string;
+    FResolutions: TFontImageResCollection;
+    procedure SetDefaultResolution(AValue: integer);
     procedure SetGlyphs(AValue: TFontImageDataArray);
     procedure SetOnInitialize(AValue: TNotifyEvent);
+    procedure SetResolutions(AValue: TFontImageResCollection);
     procedure SetSize(AValue: TSize);
   protected
     procedure Loaded; override;
     procedure DefineProperties(Filer: TFiler); override;
-    procedure SetWidth(AValue: integer);
-    procedure SetHeight(AValue: integer);
     procedure WriteGlyphData(AStream: TStream);
     procedure ReadGliphData(AStream: TStream);
     procedure WriteFontData(AStream: TStream);
@@ -62,8 +97,8 @@ type
     property Glyphs: TFontImageDataArray read FGlyphs write SetGlyphs;
   published
     property OnInitialize: TNotifyEvent read FOnInitialize write SetOnInitialize;
-    property Height write SetHeight;
-    property Width write SetWidth;
+    property DefaultResolution: integer read FDefaultResolution write SetDefaultResolution;
+    property Resolutions: TFontImageResCollection read FResolutions write SetResolutions;
     property Scaled;
     property FontStream: TMemoryStream read FFontData;
   end;
@@ -117,6 +152,105 @@ begin
   TempGlyph    := Self[AIndex];
   Self[AIndex] := Self[AIndex + 1];
   Self[AIndex + 1] := TempGlyph;
+end;
+
+{ TFontImageResItem }
+
+procedure TFontImageResItem.SetResolution(AValue: integer);
+begin
+  // Clamped rather than raising, so a hand-edited LFM still loads
+  if AValue < 1 then AValue := 1;
+  if FResolution = AValue then Exit;
+
+  FResolution := AValue;
+  Changed(False);
+end;
+
+function TFontImageResItem.GetDisplayName: string;
+begin
+  Result := Format('%0:d x %0:d', [FResolution]);
+end;
+
+constructor TFontImageResItem.Create(ACollection: TCollection);
+begin
+  inherited Create(ACollection);
+  FResolution := 16;
+end;
+
+procedure TFontImageResItem.Assign(Source: TPersistent);
+begin
+  if Source is TFontImageResItem then
+    Resolution := TFontImageResItem(Source).Resolution
+  else
+    inherited Assign(Source);
+end;
+
+{ TFontImageResCollection }
+
+function TFontImageResCollection.GetItem(AIndex: integer): TFontImageResItem;
+begin
+  Result := TFontImageResItem(inherited Items[AIndex]);
+end;
+
+procedure TFontImageResCollection.Update(Item: TCollectionItem);
+begin
+  inherited Update(Item);
+  if Assigned(FImageList) then
+    FImageList.RegenerateImages;
+
+end;
+
+constructor TFontImageResCollection.Create(AImageList: TFontImageList);
+begin
+  inherited Create(AImageList, TFontImageResItem);
+  FImageList := AImageList;
+end;
+
+function TFontImageResCollection.Add(AResolution: integer): TFontImageResItem;
+begin
+  Result := TFontImageResItem(inherited Add);
+  Result.Resolution := AResolution;
+end;
+
+function TFontImageResCollection.GetUniqueSortedResolutions: TIntegerDynArray;
+var
+  I, J, CurrentValue, UniqueCount: integer;
+  Exists: boolean;
+begin
+  SetLength(Result, Count);
+  UniqueCount := 0;
+
+  for I := 0 to Count - 1 do
+  begin
+    CurrentValue := TFontImageResItem(Items[I]).Resolution;
+    Exists := False;
+    for J := 0 to UniqueCount - 1 do
+      if Result[J] = CurrentValue then
+      begin
+        Exists := True;
+        Break;
+      end;
+
+    if not Exists then
+    begin
+      Result[UniqueCount] := CurrentValue;
+      Inc(UniqueCount);
+    end;
+  end;
+
+  SetLength(Result, UniqueCount);
+
+  for i := 1 to UniqueCount - 1 do
+  begin
+    CurrentValue := Result[i];
+    j := i - 1;
+    while (j >= 0) and (Result[j] > CurrentValue) do
+    begin
+      Result[j + 1] := Result[j];
+      Dec(j);
+    end;
+    Result[j + 1] := CurrentValue;
+  end;
 end;
 
 { TFontImageFontEditor }
@@ -174,6 +308,7 @@ begin
   inherited Create(AOwner);
   FFontData := TMemoryStream.Create;
   //  FIsLoading := False;
+  FResolutions := TFontImageResCollection.Create(self);
   SetLength(FGlyphs, 0);
 end;
 
@@ -181,6 +316,7 @@ destructor TFontImageList.Destroy;
 begin
   SetLength(FGlyphs, 0);
   FFontData.Free;
+  FResolutions.Free;
   inherited Destroy;
 end;
 
@@ -206,12 +342,6 @@ begin
 
   Filer.DefineBinaryProperty('GlyphsData', ReadGliphData, WriteGlyphData, True);
   Filer.DefineBinaryProperty('FontData', ReadFontData, WriteFontData, True);
-end;
-
-procedure TFontImageList.SetHeight(AValue: integer);
-begin
-  SetWidthHeight(Width, AValue);
-  RegenerateImages;
 end;
 
 procedure TFontImageList.WriteGlyphData(AStream: TStream);
@@ -262,12 +392,6 @@ begin
     FFontData.CopyFrom(AStream, ASize);
 end;
 
-procedure TFontImageList.SetWidth(AValue: integer);
-begin
-  SetWidthHeight(AValue, Height);
-  RegenerateImages;
-end;
-
 procedure TFontImageList.SetGlyphs(AValue: TFontImageDataArray);
 begin
   if FGlyphs = AValue then Exit;
@@ -275,9 +399,23 @@ begin
   RegenerateImages;
 end;
 
+procedure TFontImageList.SetDefaultResolution(AValue: integer);
+begin
+  if FDefaultResolution = AValue then Exit;
+  FDefaultResolution := AValue;
+  if FResolutions.Count = 0 then
+    RegenerateImages;
+end;
+
 procedure TFontImageList.SetOnInitialize(AValue: TNotifyEvent);
 begin
   FOnInitialize := AValue;
+end;
+
+procedure TFontImageList.SetResolutions(AValue: TFontImageResCollection);
+begin
+  if FResolutions = AValue then Exit;
+  FResolutions := AValue;
 end;
 
 procedure TFontImageList.SetSize(AValue: TSize);
@@ -294,20 +432,26 @@ var
   IconRenderer: TIconRenderer;
   bmp: TBitMap;
   CurrRes: TCustomImageListResolution;
-  Res: array of integer;
+  Res: TIntegerDynArray;
   Bitmaps: array of TRasterImage;
-  i: Integer;
+  i: integer;
 begin
   if FIsLoading or (csLoading in ComponentState) then Exit;
   if FFontData.Size = 0 then
     exit;
   Clear;
-  SetLength(Res, 3);
-  SetLength(Bitmaps, 3);
+  if FResolutions.Count = 0 then
+  begin
+    SetLength(Res, 1);
+    SetLength(Bitmaps, 1);
+    Res[0] := DefaultResolution;
+  end
+  else
+  begin
+    Res := FResolutions.GetUniqueSortedResolutions;
+    SetLength(Bitmaps, Length(Res));
+  end;
 
-  Res[0] := Height;
-  Res[1] := trunc(Height * 1.5);
-  Res[2] := Height * 2;
   RegisterResolutions(res);
   try
     IconRenderer := TIconRenderer.Create(FFontData);
@@ -318,7 +462,7 @@ begin
       else
         IconRenderer.Color := Item.Color;
 
-      for i := 0 to 2 do
+      for i := 0 to Length(res) - 1 do
       begin
         //  IconRenderer.SetSize(Height, Width, Scaled); // Scaling occurs inside object, no need to do it here
         IconRenderer.SetSize(Res[I], Res[i], Scaled); // Scaling occurs inside object, no need to do it here
@@ -328,7 +472,7 @@ begin
         Bitmaps[i] := bmp;
       end;
       AddMultipleResolutions(Bitmaps);
-      for i := 0 to 2 do
+      for i := 0 to Length(res) - 1 do
         Bitmaps[i].Free;
     end;
 

@@ -186,9 +186,9 @@ object FontImageListDialog: TFontImageListDialog
       Height = 449
       Top = 59
       Width = 429
-      ActivePage = tsFontInfo
+      ActivePage = tsGlyphs
       Align = alClient
-      TabIndex = 1
+      TabIndex = 0
       TabOrder = 1
       object tsGlyphs: TTabSheet
         Caption = 'Glyphs'

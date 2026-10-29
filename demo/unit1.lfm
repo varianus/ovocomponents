@@ -2758,6 +2758,16 @@ object Form1: TForm1
     end
   end
   object FontImageList1: TFontImageList
+    DefaultResolution = 16
+    Resolutions = <    
+      item
+      end    
+      item
+        Resolution = 24
+      end    
+      item
+        Resolution = 32
+      end>
     Left = 288
     Top = 112
     GlyphsData = {
