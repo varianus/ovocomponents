@@ -5,7 +5,7 @@ unit fontimagelisteditor;
 interface
 
 uses
-  Classes, Windows, SysUtils, Forms, Controls, Graphics, Dialogs, Grids, ButtonPanel, ExtCtrls, ComCtrls, ColorBox,
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, Grids, ButtonPanel, ExtCtrls, ComCtrls, ColorBox,
   StdCtrls, GraphMath, FontImageList, iconrender, Types, Math, ComponentEditors;
 
 type
@@ -572,11 +572,9 @@ begin
       TheDialog := TOpenDialog.Create(Application);
       TheDialog.Filter := 'TrueType Fonts|*.ttf;*.otf';
       TheDialog.Options := [ofFileMustExist];
-      OutputDebugString('After filter');
       try
         if TheDialog.Execute then
         begin
-          OutputDebugString('After execute');
           ImageList.FontStream.LoadFromFile(TheDialog.FileName);
           if Assigned(Hook) then
             Hook.Modified(Self);
