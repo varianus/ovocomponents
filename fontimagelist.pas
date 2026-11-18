@@ -89,11 +89,13 @@ type
     procedure ReadGliphData(AStream: TStream);
     procedure WriteFontData(AStream: TStream);
     procedure ReadFontData(AStream: TStream);
+    function ConvertColor(AColor: TColor): TColor;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure RegenerateImages;
     procedure CustomRender(AImageList: TCustomImageList; const AColor: TColor; const Size: TSize; const CodeList: array of cardinal);
+    procedure RenderString(AImage: TBitmap; const AColor: TColor; const Size: TSize; const Text: string);
     property Glyphs: TFontImageDataArray read FGlyphs write SetGlyphs;
   published
     property OnInitialize: TNotifyEvent read FOnInitialize write SetOnInitialize;
@@ -306,7 +308,7 @@ end;
 constructor TFontImageList.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FFontData := TMemoryStream.Create;
+  FFontData    := TMemoryStream.Create;
   //  FIsLoading := False;
   FResolutions := TFontImageResCollection.Create(self);
   SetLength(FGlyphs, 0);
@@ -392,6 +394,15 @@ begin
     FFontData.CopyFrom(AStream, ASize);
 end;
 
+function TFontImageList.ConvertColor(AColor: TColor): TColor;
+begin
+  if IsSysColor(AColor) then
+    Result := GetSysColor(SysColorToSysColorIndex(AColor))
+  else
+    Result := AColor;
+
+end;
+
 procedure TFontImageList.SetGlyphs(AValue: TFontImageDataArray);
 begin
   if FGlyphs = AValue then Exit;
@@ -457,10 +468,7 @@ begin
     IconRenderer := TIconRenderer.Create(FFontData);
     for item in FGlyphs do
     begin
-      if IsSysColor(Item.Color) then
-        IconRenderer.Color := GetSysColor(SysColorToSysColorIndex(Item.Color))
-      else
-        IconRenderer.Color := Item.Color;
+      IconRenderer.Color := ConvertColor(Item.Color);
 
       for i := 0 to Length(res) - 1 do
       begin
@@ -487,9 +495,21 @@ var
   iconRender: TIconRenderer;
 begin
   iconRender := TIconRenderer.Create(FFontData);
-  iconRender.Color := AColor;
+  iconRender.Color := ConvertColor(AColor);
   iconRender.SetSize(size.cx, Size.cy);
   iconRender.AddToImageList(AImageList, CodeList);
+  iconRender.Free;
+
+end;
+
+procedure TFontImageList.RenderString(AImage: TBitmap; const AColor: TColor; const Size: TSize; const Text: string);
+var
+  iconRender: TIconRenderer;
+begin
+  iconRender := TIconRenderer.Create(FFontData);
+  iconRender.Color := ConvertColor(AColor);
+  iconRender.SetSize(size.cx, Size.cy);
+  iconRender.RenderText(AImage, Text);
   iconRender.Free;
 
 end;
