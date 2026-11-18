@@ -556,6 +556,7 @@ begin
       FontImageListDialog := TFontImageListDialog.Create(Application, ImageList.FontStream);
       try
         FontImageListDialog.Glyphs := ImageList.Glyphs;
+        FontImageListDialog.LoadFont;
         if FontImageListDialog.ShowModal = mrOk then
         begin
           ImageList.Glyphs := FontImageListDialog.Glyphs;
