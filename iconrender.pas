@@ -24,6 +24,7 @@ type
     constructor Create(AStream: TStream);
     destructor Destroy; override;
     function AddToImageList(imageList: TCustomImageList; const CodeList: array of cardinal): integer;
+    function RenderText(ABitmap: TBitmap; const AText: string): integer;
     procedure SetSize(const AImageSize: integer; const FontSize: integer; AutoScale: boolean = True);
     property FontSize: integer read FSize;
     property ImageSize: integer read FimageSize;
@@ -171,6 +172,34 @@ begin
       freeTypePainter.Free;
       image.Free;
       bmp.Free;
+    end;
+  except
+    Result := -1;
+  end;
+end;
+
+function TIconRenderer.RenderText(ABitmap: TBitmap; const AText: string): integer;
+var
+  image: TLazIntfImage;
+  freeTypePainter: TIntfFreeTypeDrawer;
+  fontColor: TFPColor;
+  TextWidth: integer;
+begin
+  Result := 0;
+  try
+    image     := TLazIntfImage.Create(0, 0, [riqfRGB, riqfAlpha]);
+    freeTypePainter := TIntfFreeTypeDrawer.Create(image);
+    fontColor := TColorToFPColor(FColor);
+    try
+      TextWidth := FImageSize * UTF8Length(AText) ;
+      image.SetSize(TextWidth, FImageSize);
+      freeTypePainter.FillPixels(colTransparent);
+      freeTypePainter.DrawText(AText, FFontData, TextWidth div 2, FImageSize div 2, fontColor, [ftaCenter, ftaVerticalCenter]);
+      ABitmap.LoadFromIntfImage(image);
+      Inc(Result);
+    finally
+      freeTypePainter.Free;
+      image.Free;
     end;
   except
     Result := -1;
